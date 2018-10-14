@@ -45,6 +45,13 @@ Function Load-IseTheme {
     Set-Content @setcontentparams
 }
 
+#TODO: refactor/create additional functions for -List and -Remame
+Function Rename-IseTheme {
+}
+
+Function List-IseTheme {
+}
+
 Function Get-IseTheme {
     [CmdletBinding(DefaultParameterSetName='Name')]
     Param (
