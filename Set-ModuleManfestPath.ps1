@@ -16,7 +16,7 @@ catch {
 Could not update IseThemeManager.psd1
 
 Please update the Path setting manually in IseThemeManager.psd1
-to enable IseThemeManager to be discovered by Get-Module.
+to enable IseThemeManager to be discovered by Import-Module.
 
 "@
 }
