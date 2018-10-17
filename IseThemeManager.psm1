@@ -1,117 +1,112 @@
-
+﻿
 Function Load-IseTheme {
-    Param([string]$theme)
-    $xmldoc = [xml](Get-Content $theme)
+    Param ([string]$theme)
+    $psxml = [xml](Get-Content -Path $theme)
     $keyarr = @($xmldoc.StorableColorTheme.Keys | Select -ExpandProperty string)
-    $color = {
-        Param ($indx)
-        $a = $xmldoc.StorableColorTheme.Values.Color[$indx].A
-        $r = $xmldoc.StorableColorTheme.Values.Color[$indx].R
-        $g = $xmldoc.StorableColorTheme.Values.Color[$indx].G
-        $b = $xmldoc.StorableColorTheme.Values.Color[$indx].B
-        $hexcolor = $null
-        foreach ($i in @($a,$r,$g,$b)) {
-            $hex = [Convert]::ToString($i, 16).ToUpper()
-            if ($hex.Length -eq 1) {
-                $hex = "0$hex"
-            }
-            $hexcolor = $hexcolor + $hex
-        }
-        Return "#$hexcolor"
-    }
     $indx = 0
     foreach ($xmlkey in $keyarr) {
+        $a = $psxml.StorableColorTheme.Values.Color[$indx].A
+        $r = $psxml.StorableColorTheme.Values.Color[$indx].R
+        $g = $psxml.StorableColorTheme.Values.Color[$indx].G
+        $b = $psxml.StorableColorTheme.Values.Color[$indx].B
+        $dec2hex = {
+            ($a,$r,$g,$b) | % {
+                $hex = [System.Convert]::ToString($_,16)
+                if ($hex.Length -eq 1) { $hex = "0$hex" }
+                $hexcolor = $hexcolor + $hex
+            }
+            Return "#$hexcolor"
+        }
         switch -regex ($xmlkey) {
             '(^TokenColors|^ConsoleTokenColors|^XmlTokenColors)' {
                 $node = $xmlkey -split '\\'
                 if ([regex]::IsMatch($node[1],'\D')) {
-                    $psISE.Options.($node[0]).item($node[1]) = (& $color $indx)
+                    $psISE.Options.($node[0]).item($node[1]) = (& $dec2hex)
                 }
             }
             default {
-                $psISE.Options.($keyarr[$indx]) = (& $color $indx)
+                $psISE.Options.($keyarr[$indx]) = (& $dec2hex)
             }
-        } 
+        }
         $indx++
     }
-    $psISE.Options.FontName = ($xmldoc.ChildNodes.FontFamily.GetValue(1))
-    $psISE.Options.FontSize = ($xmldoc.ChildNodes.FontSize.GetValue(1))
-    Write-Host "IseTheme: $($xmldoc.ChildNodes.Name.GetValue(1))"
-    $setcontentparams = @{
-        Path = Join-Path $PSScriptRoot 'CurrentThemeName.txt';
-        Value = $xmldoc.ChildNodes.Name.GetValue(1);
+    $psISE.Options.FontName = ($psxml.ChildNodes.FontFamily.GetValue(1))
+    $psISE.Options.FontSize = ($psxml.ChildNodes.FontSize.GetValue(1))
+    Write-Host "IseTheme: $($psxml.ChildNodes.Name.GetValue(1))"
+    $SetContentParam = @{
+        Path = $CurrentThemeFile;
+        Value = $psxml.ChildNodes.Name.GetValue(1);
         Force = $true;
     }
-    Set-Content @setcontentparams
+    Set-Content @SetContentParam
 }
 
-#TODO: refactor/create additional functions for -List and -Remame
-Function Rename-IseTheme {
-}
-
-Function List-IseTheme {
-}
 
 Function Get-IseTheme {
-    [CmdletBinding(DefaultParameterSetName='Name')]
+    [CmdletBinding(DefaultParameterSetName='Load')]
     Param (
-        [Parameter(ParameterSetName='Name',Position=0)][string]$Name,
+        [Parameter(ParameterSetName='Load',Position=0)][string]$Load,
         [Parameter(ParameterSetName='List')][switch]$List,
         [Parameter(ParameterSetName='Rename',Position=1)][switch]$Rename,
         [Parameter(ParameterSetName='Rename',Position=2,Mandatory=$true)][string]$CurrentName,
         [Parameter(ParameterSetName='Rename',Position=3,Mandatory=$false)][string]$NewName = $CurrentName
     )
 
+    $LoadThemeName = $Load
+    $CurrentThemeName = $CurrentName
+    $NewThemeName = $NewName
+    try {
+        $script:ModuleRoot = $PSScriptRoot
+        if (-not($ModuleRoot)) { $script:ModuleRoot = Split-Path -Path $psISE.CurrentFile.FullPath }
+        $script:CurrentThemeFile = Join-Path $ModuleRoot 'CurrentThemeName.txt'
+    }
+    catch {
+        $Env:PSModulePath
+    }
     $filetype = '.StorableColorTheme.ps1xml'
-    $themes = @(gci -Path $PSScriptRoot | ? { $_.Name -match ".*\$filetype" })
-    if ($themes.Count -gt 0) {
-        if ($List) {
-            $CurrentThemeName = Get-Content -Path (Join-Path $PSScriptRoot 'CurrentThemeName.txt')
-            $themes | Sort-Object | % {
-                if (($_.Name -replace $filetype,'') -eq $CurrentThemeName) {
-                    Write-Host "$CurrentThemeName *"
+    $ThemeFiles = @(gci -Path $ModuleRoot | ? { $_.Name -match ".*\$filetype" })
+
+    if ($ThemeFiles.Count -gt 0) {
+        if ($PSCmdlet.ParameterSetName -eq 'List') {
+            $ThemeFiles | Sort-Object -Property Name | % {
+                if (($_.Name -replace $filetype,'') -eq (Get-Content $CurrentThemeFile)) {
+                    Write-Host "$(Get-Content $CurrentThemeFile) *"
                 }
                 else {
                     Write-Host $($_.Name -replace $filetype,'')
                 }
             }
         }
-        else {
-            if ($PSCmdlet.ParameterSetName -eq 'Rename') {
-                    $Name = $CurrentName
-            }
-            foreach ($t in ($themes | Sort-Object -Property LastWriteTime -Descending)) {
-                if ($t.Name -eq ($Name + $filetype)) {
-                    $themefilepath = $t.FullName
+        elseif ($PSCmdlet.ParameterSetName -eq 'Rename') {
+            foreach ($t in $ThemeFiles) {
+                if ($t.Name -eq ($NewThemeName + $filetype)) {
+                    $NewThemeFile = $t.FullName
+                    $xml = [xml](Get-Content $NewThemeFile)
+                    $xml.StorableColorTheme.Name = $NewThemeName.Trim()
+                    $xml.Save($NewThemeFile)
+                    $RenameItemParam = @{
+                        Path = $NewThemeFile;
+                        NewName = Join-Path (Split-Path $NewThemeFile -Parent) ($NewThemeName + $filetype);
+                        Force = $true;
+                    }
+                    Rename-Item @RenameItemParam
                     break
                 }
             }
-            if ($Rename -and $themefilepath) {
-                $xml = [xml](Get-Content $themefilepath)
-                $xml.StorableColorTheme.Name = $NewName.Trim()
-                $xml.Save($themefilepath)
-                $renameitemparams = @{
-                    Path = $themefilepath;
-                    NewName = Join-Path (Split-Path $themefilepath -Parent) ($NewName + $filetype);
-                    Force = $true;
-                }
-                Rename-Item @renameitemparams
+        }
+        elseif ($PSCmdlet.ParameterSetName -eq 'Load') {
+            $LoadThemeFile = ($LoadThemeName + $filetype)
+            if (-not(Test-Path -Path $LoadThemeFile)) {
+                $ThemeFiles = $ThemeFiles | Sort-Object -Property LastWriteTime -Descending
+                $LoadThemeFile = $ThemeFiles[0]
+                $notfound = 'IseThemeManager: ' +
+                    'Could not find requested theme. Defaulting to most recently modified.'
+                Write-Host $notfound -ForegroundColor DarkBlue -BackgroundColor Gray
             }
-            if ($PSCmdlet.ParameterSetName -eq 'Name') {
-                if (-not $themefilepath) {
-                    $themefilepath = $themes[0].FullName
-                    if ($Name) {
-                        $themenotfound = 'IseThemeManager: ' +
-                            'Could not find requested theme. Defaulting to most recently modified.'
-                        Write-Host $themenotfound -ForegroundColor DarkBlue -BackgroundColor Gray
-                    }
-                }
-                Load-IseTheme $themefilepath
-            }
+            Load-IseTheme $LoadThemeFile
         }
     }
-    else {
-        $filenotfound = 'IseThemeManager: No StorableColorTheme files available in Module folder.'
-        Write-Host $filenotfound -ForegroundColor DarkBlue -BackgroundColor Gray
-    }
+    $notfound = 'IseThemeManager: ' +
+        'No StorableColorTheme files available in IseThemeManager Module folder.'
+    Write-Host $notfound -ForegroundColor DarkBlue -BackgroundColor Gray
 }
