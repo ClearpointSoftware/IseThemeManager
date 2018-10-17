@@ -34,7 +34,7 @@ Function Load-IseTheme {
     $psISE.Options.FontSize = ($psxml.ChildNodes.FontSize.GetValue(1))
     Write-Host "IseTheme: $($psxml.ChildNodes.Name.GetValue(1))"
     $SetContentParam = @{
-        Path = $CurrentThemeFile;
+        Path = Join-Path $ModuleRoot 'CurrentThemeName.txt';
         Value = $psxml.ChildNodes.Name.GetValue(1);
         Force = $true;
     }
@@ -51,17 +51,20 @@ Function Get-IseTheme {
         [Parameter(ParameterSetName='Rename',Position=2,Mandatory=$true)][string]$CurrentName,
         [Parameter(ParameterSetName='Rename',Position=3,Mandatory=$false)][string]$NewName = $CurrentName
     )
-
     $LoadThemeName = $Load
     $CurrentThemeName = $CurrentName
     $NewThemeName = $NewName
     try {
-        $script:ModuleRoot = $PSScriptRoot
+        $global:ModuleRoot = $PSScriptRoot
+        Write-Output "$ModuleRoot <= ModuleRoot"
         if (-not($ModuleRoot)) { $script:ModuleRoot = Split-Path -Path $psISE.CurrentFile.FullPath }
-        $script:CurrentThemeFile = Join-Path $ModuleRoot 'CurrentThemeName.txt'
+        $CurrentThemeFile = Join-Path $ModuleRoot 'CurrentThemeName.txt'
     }
     catch {
         $Env:PSModulePath
+    }
+    finally {
+        Write-Output "$ModuleRoot <== ModuleRoot"
     }
     $filetype = '.StorableColorTheme.ps1xml'
     $ThemeFiles = @(gci -Path $ModuleRoot | ? { $_.Name -match ".*\$filetype" })
@@ -98,7 +101,7 @@ Function Get-IseTheme {
             $LoadThemeFile = ($LoadThemeName + $filetype)
             if (-not(Test-Path -Path $LoadThemeFile)) {
                 $ThemeFiles = $ThemeFiles | Sort-Object -Property LastWriteTime -Descending
-                $LoadThemeFile = $ThemeFiles[0]
+                $LoadThemeFile = ($ThemeFiles[0]).FullName
                 $notfound = 'IseThemeManager: ' +
                     'Could not find requested theme. Defaulting to most recently modified.'
                 Write-Host $notfound -ForegroundColor DarkBlue -BackgroundColor Gray
@@ -106,7 +109,9 @@ Function Get-IseTheme {
             Load-IseTheme $LoadThemeFile
         }
     }
-    $notfound = 'IseThemeManager: ' +
-        'No StorableColorTheme files available in IseThemeManager Module folder.'
-    Write-Host $notfound -ForegroundColor DarkBlue -BackgroundColor Gray
+    else {
+        $notfound = 'IseThemeManager: ' +
+            'No StorableColorTheme files available in IseThemeManager Module folder.'
+        Write-Host $notfound -ForegroundColor DarkBlue -BackgroundColor Gray
+    }
 }
