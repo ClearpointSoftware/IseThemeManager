@@ -1,15 +1,16 @@
 ﻿
 Function Dec2Hex {
     Param ([int]$indx)
-    $a = $psxml.StorableColorTheme.Values.Color[$indx].A
-    $r = $psxml.StorableColorTheme.Values.Color[$indx].R
-    $g = $psxml.StorableColorTheme.Values.Color[$indx].G
-    $b = $psxml.StorableColorTheme.Values.Color[$indx].B
-    ($a,$r,$g,$b) | % {
-        $hex = [System.Convert]::ToString($_,16)
-        if ($hex.Length -eq 1) { $hex = "0$hex" }
-        $hexcolor = $hexcolor + $hex
-    }
+    ($psxml.StorableColorTheme.Values.Color[$indx].A,
+        $psxml.StorableColorTheme.Values.Color[$indx].R,
+        $psxml.StorableColorTheme.Values.Color[$indx].G,
+        $psxml.StorableColorTheme.Values.Color[$indx].B) | % {
+            $hex = [System.Convert]::ToString($_,16)
+            if ($hex.Length -eq 1) {
+                $hex = "0$hex"
+            }
+            $hexcolor = $hexcolor + $hex
+        }
     Return "#$hexcolor"
 }
 
@@ -24,6 +25,9 @@ Function Load-IseTheme {
                 $node = $xmlkey -split '\\'
                 if ([regex]::IsMatch($node[1],'\D')) {
                     $psISE.Options.($node[0]).item($node[1]) = (Dec2Hex $indx)
+                }
+                else {
+                    Write-Verbose "$($node[1])"
                 }
             }
             default {
@@ -73,6 +77,7 @@ Function Get-IseTheme {
             foreach ($t in $ThemeFiles) {
                 if ($t.Name -eq ($NewThemeName + $filetype)) {
                     $NewThemeFile = $t.FullName
+                    #$NewThemeFile = 'E:\Documents\WindowsPowerShell\Modules\IseThemeManager\Monokai10.StorableColorTheme.ps1xml'
                     $xmlthm = [xml](Get-Content $NewThemeFile)
                     $xmlthm.StorableColorTheme.Name = $NewThemeName.Trim()
                     $xmlthm.Save($NewThemeFile)
@@ -105,6 +110,7 @@ Function Get-IseTheme {
     }
 }
 
+# $ModuleRoot = 'E:\Documents\WindowsPowerShell\Modules\IseThemeManager'
 $ModuleRoot = $PSScriptRoot
 $configfile = Join-Path $ModuleRoot 'IseThemeManager.config'
 $xmlcfg = [xml](Get-Content $configfile)
