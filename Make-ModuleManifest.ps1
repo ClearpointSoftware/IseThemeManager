@@ -1,9 +1,9 @@
 ﻿$username = 'admin' # <== edit here
 $modulename = 'IseThemeManager'
 $manifestparams = @{
-    Path = $(Join-Path "C:\Users\$username\Documents\WindowsPowerShell\Modules\IseThemeManager" ($modulename + '.psd1'));
+    Path = $(Join-Path "C:\Users\$username\Documents\WindowsPowerShell\Modules\IseThemeManager" ($modulename + '.psd1')) ;
     RootModule = $(Join-Path "C:\Users\$username\Documents\WindowsPowerShell\Modules\IseThemeManager" ($modulename + '.psm1'));
-    ModuleVersion = '2.1.0.3';
+    ModuleVersion = '2.1.0.4';
     Guid = $(New-Guid);
     Author = 'John Elliott';
     CompanyName = 'Clearpoint Software';
@@ -12,7 +12,7 @@ $manifestparams = @{
     PowerShellVersion = '3.0';
     PowerShellHostName = 'Windows PowerShell ISE Host';
     FunctionsToExport = 'Get-IseTheme';
-    FileList = "$($modulename + '.psm1')",'CurrentThemeName.txt';
+    FileList = $($modulename + 'psm1'),'IseThemeManager.config';
     ProjectUri = 'https://github.com/ClearpointSoftware/IseThemeManager'
     Tags = 'Editor','ISE','Themes','Color Themes'
 }
