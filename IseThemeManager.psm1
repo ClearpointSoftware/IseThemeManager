@@ -105,7 +105,6 @@ Function Get-IseTheme {
     }
 }
 
-# $ModuleRoot = 'E:\Documents\WindowsPowerShell\Modules\IseThemeManager'
 $ModuleRoot = $PSScriptRoot
 $configfile = Join-Path $ModuleRoot 'IseThemeManager.config'
 $xmlcfg = [xml](Get-Content $configfile)
