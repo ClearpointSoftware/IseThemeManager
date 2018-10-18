@@ -50,7 +50,7 @@ Function Get-IseTheme {
         [Parameter(ParameterSetName='List')][switch]$List,
         [Parameter(ParameterSetName='Rename',Position=1)][switch]$Rename,
         [Parameter(ParameterSetName='Rename',Position=2,Mandatory=$true)][string]$CurrentName,
-        [Parameter(ParameterSetName='Rename',Position=3,Mandatory=$false)][string]$NewName = $CurrentName,
+        [Parameter(ParameterSetName='Rename',Position=3,Mandatory=$false)][string]$NewName,
         [Parameter(ParameterSetName='LineNumbers')][switch]$LineNumbers,
         [Parameter(ParameterSetName='Outlining')][switch]$Outlining,
         [Parameter(ParameterSetName='Toolbar')][switch]$Toolbar
@@ -75,15 +75,17 @@ Function Get-IseTheme {
         }
         elseif ($PSCmdlet.ParameterSetName -eq 'Rename') {
             foreach ($t in $ThemeFiles) {
-                if ($t.Name -eq ($NewThemeName + $filetype)) {
-                    $NewThemeFile = $t.FullName
-                    #$NewThemeFile = 'E:\Documents\WindowsPowerShell\Modules\IseThemeManager\Monokai10.StorableColorTheme.ps1xml'
-                    $xmlthm = [xml](Get-Content $NewThemeFile)
-                    $xmlthm.StorableColorTheme.Name = $NewThemeName.Trim()
-                    $xmlthm.Save($NewThemeFile)
+                if ($t.Name -eq ($CurrentThemeName + $filetype)) {
+                    $CurrentThemeFile = $t.FullName
+                    $xmlthm = [xml](Get-Content $CurrentThemeFile)
+                    if (-not($NewThemeName)) {
+                        $NewThemeName = $CurrentThemeName
+                    }
+                    $xmlthm.StorableColorTheme.Name = $NewThemeName
+                    $xmlthm.Save($CurrentThemeFile)
                     $RenameItemParam = @{
-                        Path = $NewThemeFile;
-                        NewName = Join-Path (Split-Path $NewThemeFile -Parent) ($NewThemeName + $filetype);
+                        Path = $CurrentThemeFile;
+                        NewName = Join-Path $ModuleRoot ($NewThemeName + $filetype);
                         Force = $true;
                     }
                     Rename-Item @RenameItemParam
@@ -110,7 +112,6 @@ Function Get-IseTheme {
     }
 }
 
-# $ModuleRoot = 'E:\Documents\WindowsPowerShell\Modules\IseThemeManager'
 $ModuleRoot = $PSScriptRoot
 $configfile = Join-Path $ModuleRoot 'IseThemeManager.config'
 $xmlcfg = [xml](Get-Content $configfile)
