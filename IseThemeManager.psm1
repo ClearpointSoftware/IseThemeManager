@@ -48,9 +48,6 @@ Function Load-IseTheme {
                 if ([regex]::IsMatch($node[1],'\D')) {
                     $psISE.Options.($node[0]).item($node[1]) = (Dec2Hex $indx)
                 }
-                else {
-                    Write-Verbose "$($node[1])"
-                }
             }
             default {
                 $psISE.Options.($keyarr[$indx]) = (Dec2Hex $indx)
