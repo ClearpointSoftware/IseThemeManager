@@ -135,6 +135,5 @@ Function Get-IseTheme {
 }
 
 $ModuleRoot = $PSScriptRoot
-$ModuleRoot = 'E:\Documents\WindowsPowerShell\Modules\IseThemeManager'
 $filetype = '.StorableColorTheme.ps1xml'
 $configfile = Join-Path $ModuleRoot 'IseThemeManager.config'
