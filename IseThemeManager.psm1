@@ -1,4 +1,26 @@
 ﻿
+Function Get-DefaultTheme {
+    Param (
+        [switch]$Name,
+        [switch]$File
+    )
+    if ($ThemeFiles.Count -gt 0) {
+        if ($Name) {
+            $DefaultTheme = ($ThemeFiles[0]).Name -replace $filetype,''
+        }
+        elseif ($File) {
+            $DefaultTheme =  ($ThemeFiles[0]).FullName
+        }
+    }
+    Return $DefaultTheme
+}
+
+Function Set-ActiveTheme {
+    Param ([string]$ThemeName)
+    $xmlcfg.configuration.appSettings.ActiveThemeName.value = $ThemeName
+    $xmlcfg.Save($configfile)
+}
+
 Function Dec2Hex {
     Param ([int]$indx)
     ($psxml.StorableColorTheme.Values.Color[$indx].A,
@@ -38,9 +60,8 @@ Function Load-IseTheme {
     }
     $psISE.Options.FontName = ($psxml.ChildNodes.FontFamily.GetValue(1))
     $psISE.Options.FontSize = ($psxml.ChildNodes.FontSize.GetValue(1))
+    Set-ActiveTheme -ThemeName $($psxml.ChildNodes.Name.GetValue(1))
     Write-Host "IseTheme: $($psxml.ChildNodes.Name.GetValue(1))"
-    $xmlcfg.configuration.appSettings.CurrentThemeName.value = $($psxml.ChildNodes.Name.GetValue(1))
-    $xmlcfg.Save($configfile)
 }
 
 Function Get-IseTheme {
@@ -50,7 +71,7 @@ Function Get-IseTheme {
         [Parameter(ParameterSetName='List')][switch]$List,
         [Parameter(ParameterSetName='Rename',Position=1)][switch]$Rename,
         [Parameter(ParameterSetName='Rename',Position=2,Mandatory=$true)][string]$CurrentName,
-        [Parameter(ParameterSetName='Rename',Position=3,Mandatory=$false)][string]$NewName,
+        [Parameter(ParameterSetName='Rename',Position=3,Mandatory=$true)][string]$NewName,
         [Parameter(ParameterSetName='LineNumbers')][switch]$LineNumbers,
         [Parameter(ParameterSetName='Outlining')][switch]$Outlining,
         [Parameter(ParameterSetName='Toolbar')][switch]$Toolbar
@@ -59,14 +80,16 @@ Function Get-IseTheme {
     $LoadThemeName = $Load
     $CurrentThemeName = $CurrentName
     $NewThemeName = $NewName
-    $filetype = '.StorableColorTheme.ps1xml'
-    $ThemeFiles = @(gci -Path $ModuleRoot | ? { $_.Name -match ".*\$filetype" })
+
+    $script:ThemeFiles = @(gci -Path $ModuleRoot | ? { $_.Name -match ".*\$filetype" }) |
+        Sort-Object -Property LastWriteTime -Descending
+    $script:xmlcfg = [xml](Get-Content $configfile)
 
     if ($ThemeFiles.Count -gt 0) {
         if ($PSCmdlet.ParameterSetName -eq 'List') {
             $ThemeFiles | Sort-Object -Property Name | % {
-                if (($_.Name -replace $filetype,'') -eq $xmlcfg.configuration.appSettings.CurrentThemeName.value) {
-                    Write-Host "$($xmlcfg.configuration.appSettings.CurrentThemeName.value) *"
+                if (($_.Name -replace $filetype,'') -eq $xmlcfg.configuration.appSettings.ActiveThemeName.value) {
+                    Write-Host "$($xmlcfg.configuration.appSettings.ActiveThemeName.value) *"
                 }
                 else {
                     Write-Host $($_.Name -replace $filetype,'')
@@ -78,9 +101,6 @@ Function Get-IseTheme {
                 if ($t.Name -eq ($CurrentThemeName + $filetype)) {
                     $CurrentThemeFile = $t.FullName
                     $xmlthm = [xml](Get-Content $CurrentThemeFile)
-                    if (-not($NewThemeName)) {
-                        $NewThemeName = $CurrentThemeName
-                    }
                     $xmlthm.StorableColorTheme.Name = $NewThemeName
                     $xmlthm.Save($CurrentThemeFile)
                     $RenameItemParam = @{
@@ -89,6 +109,9 @@ Function Get-IseTheme {
                         Force = $true;
                     }
                     Rename-Item @RenameItemParam
+                    if ($xmlcfg.configuration.appSettings.ActiveThemeName.value -eq $CurrentThemeName) {
+                        Set-ActiveTheme -ThemeName $NewThemeName
+                    } 
                     break
                 }
             }
@@ -96,8 +119,7 @@ Function Get-IseTheme {
         elseif ($PSCmdlet.ParameterSetName -eq 'Load') {
             $LoadThemeFile = Join-Path $ModuleRoot ($LoadThemeName + $filetype)
             if (-not([System.IO.File]::Exists($LoadThemeFile))) {
-                $ThemeFiles = $ThemeFiles | Sort-Object -Property LastWriteTime -Descending
-                $LoadThemeFile = ($ThemeFiles[0]).FullName
+                $LoadThemeFile = (Get-DefaultTheme -File)
                 $notfound = 'IseThemeManager: ' +
                     'Could not find requested theme. Defaulting to most recently modified.'
                 Write-Host $notfound -ForegroundColor DarkBlue -BackgroundColor Gray
@@ -113,5 +135,6 @@ Function Get-IseTheme {
 }
 
 $ModuleRoot = $PSScriptRoot
+$ModuleRoot = 'E:\Documents\WindowsPowerShell\Modules\IseThemeManager'
+$filetype = '.StorableColorTheme.ps1xml'
 $configfile = Join-Path $ModuleRoot 'IseThemeManager.config'
-$xmlcfg = [xml](Get-Content $configfile)

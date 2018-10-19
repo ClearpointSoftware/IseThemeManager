@@ -1,6 +1,6 @@
 @{
 RootModule = 'C:\Users\<username>\Documents\WindowsPowerShell\Modules\IseThemeManager\IseThemeManager.psm1'
-ModuleVersion = '2.1.0.4'
+ModuleVersion = '2.1.0.5'
 GUID = '93f4c2f0-3c34-4205-89d6-a26934049714'
 Author = 'John Elliott'
 CompanyName = 'Clearpoint Software'
