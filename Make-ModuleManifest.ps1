@@ -1,8 +1,8 @@
 ﻿
 $modulename = 'IseThemeManager'
 $manifestparams = @{
-    Path = $(Join-Path $($PSScriptRoot) ($modulename + '.psd1')) ;
-    RootModule = $(Join-Path $($PSScriptRoot) ($modulename + '.psm1'));
+    Path = Join-Path $($PSScriptRoot) ($modulename + '.psd1');
+    RootModule = Join-Path $($PSScriptRoot) ($modulename + '.psm1');
     ModuleVersion = '2.1.0.5';
     Guid = $(New-Guid);
     Author = 'John Elliott';
