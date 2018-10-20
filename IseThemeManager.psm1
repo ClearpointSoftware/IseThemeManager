@@ -1,4 +1,5 @@
 ﻿
+
 Function Get-DefaultTheme {
     Param (
         [switch]$Name,
@@ -57,7 +58,7 @@ Function Load-IseTheme {
     }
     $psISE.Options.FontName = ($psxml.ChildNodes.FontFamily.GetValue(1))
     $psISE.Options.FontSize = ($psxml.ChildNodes.FontSize.GetValue(1))
-    Set-ActiveTheme -ThemeName $($psxml.ChildNodes.Name.GetValue(1))
+    Set-ActiveTheme -ThemeName "$($psxml.ChildNodes.Name.GetValue(1))"
     Write-Host "IseTheme: $($psxml.ChildNodes.Name.GetValue(1))"
 }
 
@@ -74,13 +75,16 @@ Function Get-IseTheme {
         [Parameter(ParameterSetName='Toolbar')][switch]$Toolbar
     )
 
-    $LoadThemeName = $Load
-    $CurrentThemeName = $CurrentName
-    $NewThemeName = $NewName
-
+    $script:ModuleRoot = Split-Path "$PSCommandPath"
+    $script:filetype = '.StorableColorTheme.ps1xml'
+    $script:configfile = Join-Path $ModuleRoot 'IseThemeManager.config'
     $script:ThemeFiles = @(gci -Path $ModuleRoot | ? { $_.Name -match ".*\$filetype" }) |
         Sort-Object -Property LastWriteTime -Descending
     $script:xmlcfg = [xml](Get-Content $configfile)
+
+    $LoadThemeName = $Load
+    $CurrentThemeName = $CurrentName
+    $NewThemeName = $NewName
 
     if ($ThemeFiles.Count -gt 0) {
         if ($PSCmdlet.ParameterSetName -eq 'List') {
@@ -131,6 +135,3 @@ Function Get-IseTheme {
     }
 }
 
-$ModuleRoot = $PSScriptRoot
-$filetype = '.StorableColorTheme.ps1xml'
-$configfile = Join-Path $ModuleRoot 'IseThemeManager.config'
