@@ -97,9 +97,9 @@ Function Get-IseTheme {
             foreach ($t in $ThemeFiles) {
                 if ($t.Name -eq ($CurrentThemeName + $filetype)) {
                     $CurrentThemeFile = $t.FullName
-                    $xmlthm = [xml](Get-Content $CurrentThemeFile)
-                    $xmlthm.StorableColorTheme.Name = $NewThemeName
-                    $xmlthm.Save($CurrentThemeFile)
+                    $themexml = [xml](Get-Content $CurrentThemeFile)
+                    $themexml.StorableColorTheme.Name = $NewThemeName
+                    $themexml.Save($CurrentThemeFile)
                     $RenameItemParam = @{
                         Path = $CurrentThemeFile;
                         NewName = Join-Path $ModuleRoot ($NewThemeName + $filetype);
