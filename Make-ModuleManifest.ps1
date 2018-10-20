@@ -1,8 +1,8 @@
-﻿$username = 'admin' # <== edit here
+﻿
 $modulename = 'IseThemeManager'
 $manifestparams = @{
-    Path = $(Join-Path "C:\Users\$username\Documents\WindowsPowerShell\Modules\IseThemeManager" ($modulename + '.psd1')) ;
-    RootModule = $(Join-Path "C:\Users\$username\Documents\WindowsPowerShell\Modules\IseThemeManager" ($modulename + '.psm1'));
+    Path = $(Join-Path $($PSScriptRoot) ($modulename + '.psd1')) ;
+    RootModule = $(Join-Path $($PSScriptRoot) ($modulename + '.psm1'));
     ModuleVersion = '2.1.0.5';
     Guid = $(New-Guid);
     Author = 'John Elliott';
@@ -16,7 +16,7 @@ $manifestparams = @{
     ProjectUri = 'https://github.com/ClearpointSoftware/IseThemeManager'
     Tags = 'Editor','ISE','Themes','Color Themes'
 }
-New-ModuleManifest @manifestparams -PassThru
-#New-ModuleManifest @manifestparams
+#New-ModuleManifest @manifestparams -PassThru
+New-ModuleManifest @manifestparams
 $uncomment = Get-Content -Path $manifestparams.Path | ? { $_ -notmatch '^#.*|^\s+#\s.*|\*' }
 $uncomment | % { $_.TrimEnd() } | ? { $_ -match '\S'} | Set-Content $manifestparams.Path
