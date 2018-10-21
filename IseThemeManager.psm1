@@ -22,7 +22,7 @@ Function Set-ActiveTheme {
     $xmlcfg.Save($configfile)
 }
 
-Function Dec2Hex {
+Function Convert-ARGB {
     Param ([int]$indx)
     ($psxml.StorableColorTheme.Values.Color[$indx].A,
         $psxml.StorableColorTheme.Values.Color[$indx].R,
@@ -47,7 +47,7 @@ Function Get-ScriptVersion {
     $rgx = '(?<version>\d+$)'
     $ScriptName =  [System.IO.Path]::GetFileNameWithoutExtension($psISE.CurrentFile.FullPath)
     $result = $ScriptName -match $rgx  
-    $ScriptVersion = ($Matches.version) # 0 if no match
+    $ScriptVersion = ($Matches.version) # 0 if not versioned
     switch -Regex ($PSCmdlet.ParameterSetName) {
         'DisplayName' {
             $var = $ScriptName
@@ -72,11 +72,11 @@ Function Load-IseTheme {
             '(^TokenColors|^ConsoleTokenColors|^XmlTokenColors)' {
                 $node = $xmlkey -split '\\'
                 if ([regex]::IsMatch($node[1],'\D')) {
-                    $psISE.Options.($node[0]).item($node[1]) = (Dec2Hex $indx)
+                    $psISE.Options.($node[0]).item($node[1]) = (Convert-ARGB $indx)
                 }
             }
             default {
-                $psISE.Options.($keyarr[$indx]) = (Dec2Hex $indx)
+                $psISE.Options.($keyarr[$indx]) = (Convert-ARGB $indx)
             }
         }
         $indx++
@@ -106,12 +106,23 @@ Function Get-IseVersion {
             }
             elseif ($_ -match 'Fork') {
                 $newfilename = "$(Get-ScriptVersion -DisplayName)F$([string](Get-Random -Minimum 111 -Maximum 999))" + 'F_0.ps1'
-                $newfilecode = $psISE.CurrentFile.Editor.SelectedText #TODO: test if empty
+                $newfilecode = $psISE.CurrentFile.Editor.SelectedText
             }
-            $newfile = $psISE.CurrentPowerShellTab.Files.Add()
-            $newfile.Editor.Text = $newfilecode
-            $newfile.Editor.SetCaretPosition(1,1)
-            $newfile.SaveAs($newfilename) #TODO: no clobber
+            if ($newfilecode.length -gt 0) {
+                $newfile = $psISE.CurrentPowerShellTab.Files.Add()
+                $newfile.Editor.Text = $newfilecode
+                $newfile.Editor.SetCaretPosition(1,1)
+                $newfilepath = Join-Path $(Split-Path $psISE.CurrentFile.FullPath) $newfilename -ErrorAction SilentlyContinue
+                if ([System.IO.File]::Exists($newfilepath)) {
+                    Write-Host "$newfilename already esists!" -ForegroundColor Magenta
+                }
+                else {
+                    $newfile.SaveAs($newfilename)
+                }
+            }
+            else {
+                Write-Host 'Nothing to rev or fork!' -ForegroundColor Magenta
+            }
         }
         default { }
     }
@@ -139,7 +150,8 @@ Function Get-IseTheme {
 
     if ($ThemeFiles.Count -gt 0) {
         switch ($PSCmdlet.ParameterSetName) {
-            List { $ThemeFiles | Sort-Object -Property Name | % {
+            List {
+                $ThemeFiles | Sort-Object -Property Name | % {
                     if (($_.Name -replace $filetype,'') -eq $xmlcfg.configuration.appSettings.ActiveThemeName.value) {
                         Write-Host "$($xmlcfg.configuration.appSettings.ActiveThemeName.value) *"
                     }
@@ -148,7 +160,8 @@ Function Get-IseTheme {
                     }
                 }
             }
-            Rename { foreach ($t in $ThemeFiles) {
+            Rename {
+                foreach ($t in $ThemeFiles) {
                     if ($t.Name -eq ($CurrentThemeName + $filetype)) {
                         $CurrentThemeFile = $t.FullName
                         $themexml = [xml](Get-Content $CurrentThemeFile)
@@ -167,15 +180,16 @@ Function Get-IseTheme {
                     }
                 }
             }
-            Load { $LoadThemeFile = Join-Path $ModuleRoot ($LoadThemeName + $filetype)
-            if (-not([System.IO.File]::Exists($LoadThemeFile))) {
-                $LoadThemeFile = (Get-DefaultTheme -File)
-                $notfound = 'IseThemeManager: ' +
-                    'Could not find requested theme. Defaulting to most recently modified.'
-                Write-Host $notfound -ForegroundColor DarkBlue -BackgroundColor Gray
+            Load {
+                $LoadThemeFile = Join-Path $ModuleRoot ($LoadThemeName + $filetype)
+                if (-not([System.IO.File]::Exists($LoadThemeFile))) {
+                    $LoadThemeFile = (Get-DefaultTheme -File)
+                    $notfound = 'IseThemeManager: ' +
+                        'Could not find requested theme. Defaulting to most recently modified.'
+                    Write-Host $notfound -ForegroundColor DarkBlue -BackgroundColor Gray
+                    }
+                    Load-IseTheme $LoadThemeFile
                 }
-                Load-IseTheme $LoadThemeFile
-            }
             default { }
         }
     }
