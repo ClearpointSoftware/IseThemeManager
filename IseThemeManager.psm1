@@ -154,7 +154,7 @@ Function Get-IseVersion {
                 $message = "$([System.Environment]::NewLine)$($xmlcfg.configuration.appSettings.RepositoryPath.value)"
                 Write-Output $message
             }
-            elseif ($RepositoryPath -and (Test-Path $SetPath)) {
+            elseif ($RepositoryPath -and (Test-Path -Path $SetPath -PathType Container)) {
                 $xmlcfg.configuration.appSettings.RepositoryPath.value = $SetPath
                 $xmlcfg.Save($configfile)
             }
