@@ -87,42 +87,80 @@ Function Load-IseTheme {
     Write-Host "IseTheme: $($psxml.ChildNodes.Name.GetValue(1))"
 }
 
-#TODO: print path and/or prompt to set path in .config for revised/forked files
 Function Get-IseVersion {
-    [CmdletBinding(DefaultParameterSetName='Path')]
+    [CmdletBinding(DefaultParameterSetName='CurrentFilePath')]
     Param (
-        [Parameter(ParameterSetName='Path')][switch]$Path,
+        [Parameter(ParameterSetName='CurrentFilePath')][switch]$CurrentFilePath,
         [Parameter(ParameterSetName='Revision')][switch]$Revision,
-        [Parameter(ParameterSetName='Fork')][switch]$Fork
+        [Parameter(ParameterSetName='Fork')][switch]$Fork,
+        [Parameter(ParameterSetName='RepositoryPath',Position=0,Mandatory=$true)][switch]$RepositoryPath,
+        [Parameter(ParameterSetName='RepositoryPath',Position=1,Mandatory=$false)][string]$SetPath
     )
+    $CurrentFile = $psISE.CurrentFile
+    $ext = [System.IO.Path]::GetExtension($psISE.CurrentFile.FullPath)
     switch -Regex ($PSCmdlet.ParameterSetName) {
-        'Path' {
-            Write-Host "$([System.Environment]::NewLine)$($psISE.CurrentFile.FullPath)"
+        'CurrentFilePath' {
+            Write-Host "$([System.Environment]::NewLine)$($CurrentFile.FullPath)"
         }
-        'Revision|Fork' { 
+        'Revision|Fork' {
             if ($_ -match 'Revision') {
-                $rev = (Get-ScriptVersion -Number) + 1
-                $newfilename = "$(Get-ScriptVersion -BaseName)$rev" + '.ps1'
-                $newfilecode = $psISE.CurrentFile.Editor.Text
+                $rev = (Get-ScriptVersion -Number) + 5
+                $NewFileName = "$(Get-ScriptVersion -BaseName)$rev" + $ext
+                $NewFileContent = $CurrentFile.Editor.Text
             }
             elseif ($_ -match 'Fork') {
-                $newfilename = "$(Get-ScriptVersion -DisplayName)F_0" + '.ps1'
-                $newfilecode = $psISE.CurrentFile.Editor.SelectedText
+                $NewFileName = "$(Get-ScriptVersion -DisplayName)F_0" + $ext
+                $NewFileContent = $CurrentFile.Editor.SelectedText
             }
-            if ($newfilecode.length -gt 0) {
-                $newfile = $psISE.CurrentPowerShellTab.Files.Add()
-                $newfile.Editor.Text = $newfilecode
-                $newfile.Editor.SetCaretPosition(1,1)
-                $newfilepath = Join-Path $(Split-Path $psISE.CurrentFile.FullPath) $newfilename
-                if ([System.IO.File]::Exists($newfilepath)) {
-                    Write-Host "$newfilename already esists!" -ForegroundColor Magenta
+            if ($NewFileContent.length -gt 0) {
+                $NewFile = $psISE.CurrentPowerShellTab.Files.Add()
+                $NewFile.Editor.Text = $NewFileContent
+                $NewFile.Editor.SetCaretPosition(1,1)
+                $ErrorActionPreference = 'Stop'
+                try {
+                    $NewFilePath = Join-Path ($xmlcfg.configuration.appSettings.RepositoryPath.value) $NewFileName
                 }
-                else {
-                    $newfile.SaveAs($newfilename)
+                catch {
+                    $NewFilePath = $null
+                    $message = ' Invalid Repository Path '
+                    Write-Host $message -ForegroundColor DarkBlue -BackgroundColor DarkYellow
                 }
+                try {
+                    if ([System.IO.File]::Exists($NewFilePath)) {
+                        $message = " $NewFilePath already exists! " 
+                        Write-Host $message -ForegroundColor DarkBlue -BackgroundColor DarkYellow
+                    }
+                    elseif ($NewFilePath) {
+                        $NewFile.SaveAs($NewFilePath)
+                        if ($_ -match 'Revision') {
+                            $CurrentFile.Save()
+                            $psISE.CurrentPowerShellTab.Files.Remove($CurrentFile,$true)
+                        }
+                    }
+                }
+                catch {
+                    $message = ' Error: could not save to Repository  ' 
+                    Write-Host $message -ForegroundColor White -BackgroundColor DarkMagenta
+                }
+                $ErrorActionPreference = 'Continue'
             }
             else {
-                Write-Host 'Select the code you wish to fork.' -ForegroundColor Green
+                $message = ' Select the code you wish to fork '
+                Write-Host $message -ForegroundColor DarkBlue -BackgroundColor DarkYellow
+            }
+        }
+        'RepositoryPath' {
+            if ($RepositoryPath -and (-not($SetPath))) {
+                $message = "$([System.Environment]::NewLine)$($xmlcfg.configuration.appSettings.RepositoryPath.value)"
+                Write-Output $message
+            }
+            elseif ($RepositoryPath -and (Test-Path $SetPath)) {
+                $xmlcfg.configuration.appSettings.RepositoryPath.value = $SetPath
+                $xmlcfg.Save($configfile)
+            }
+            else {
+                $message = ' Invalid path. Please try again '
+                Write-Host $message -ForegroundColor DarkBlue -BackgroundColor DarkYellow
             }
         }
         default { }
@@ -186,19 +224,17 @@ Function Get-IseTheme {
                 $LoadThemeFile = Join-Path $ModuleRoot ($LoadThemeName + $filetype)
                 if (-not([System.IO.File]::Exists($LoadThemeFile))) {
                     $LoadThemeFile = (Get-DefaultTheme -File)
-                    $notfound = 'IseThemeManager: ' +
-                        'Could not find requested theme. Defaulting to most recently modified.'
-                    Write-Host $notfound -ForegroundColor DarkBlue -BackgroundColor Gray
-                    }
-                    Load-IseTheme $LoadThemeFile
+                    $message = ' Could not find requested theme. Defaulting to most recently modified. '
+                    Write-Host $message -ForegroundColor DarkBlue -BackgroundColor DarkYellow
                 }
+                Load-IseTheme $LoadThemeFile
+            }
             default { }
         }
     }
     else {
-        $notfound = 'IseThemeManager: ' +
-            'No StorableColorTheme files available in IseThemeManager Module folder.'
-        Write-Host $notfound -ForegroundColor DarkBlue -BackgroundColor Gray
+        $message = ' IseThemeManager could not find any StorableColorTheme files '
+        Write-Host $notfound -ForegroundColor DarkBlue -BackgroundColor DarkYellow
     }
 }
 
