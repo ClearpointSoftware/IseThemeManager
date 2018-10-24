@@ -1,16 +1,12 @@
 ﻿
 
 Function Get-DefaultTheme {
-    Param (
-        [switch]$Name,
-        [switch]$File
-    )
+    Param ([string]$descriptor)
+
     if ($ThemeFiles.Count -gt 0) {
-        if ($Name) {
-            $DefaultTheme = ($ThemeFiles[0]).Name -replace $filetype,''
-        }
-        elseif ($File) {
-            $DefaultTheme =  ($ThemeFiles[0]).FullName
+        switch ($descriptor) {
+            'Name' { $DefaultTheme = ($ThemeFiles[0]).Name -replace $filetype,'' }
+            'FullPath' { $DefaultTheme =  ($ThemeFiles[0]).FullName }
         }
     }
     Return $DefaultTheme
@@ -18,12 +14,14 @@ Function Get-DefaultTheme {
 
 Function Set-ActiveTheme {
     Param ([string]$ThemeName)
+
     $xmlcfg.configuration.appSettings.ActiveThemeName.value = $ThemeName
     $xmlcfg.Save($configfile)
 }
 
 Function Convert-ARGB {
     Param ([int]$indx)
+
     ($psxml.StorableColorTheme.Values.Color[$indx].A,
      $psxml.StorableColorTheme.Values.Color[$indx].R,
      $psxml.StorableColorTheme.Values.Color[$indx].G,
@@ -38,37 +36,35 @@ Function Convert-ARGB {
 }
 
 Function Get-ScriptVersion {
-    [CmdletBinding(DefaultParameterSetName='DisplayName')]
-    Param (
-        [Parameter(ParameterSetName='DisplayName')][switch]$DisplayName,
-        [Parameter(ParameterSetName='BaseName')][switch]$BaseName,
-        [Parameter(ParameterSetName='Number')][switch]$Number
-    )
+    Param ([string]$identifier)
+
     $rgx = '(?<version>\d+$)' # $Matches returns 0 if no version digit
     $ScriptName =  [System.IO.Path]::GetFileNameWithoutExtension($psISE.CurrentFile.FullPath)
     $result = $ScriptName -match $rgx  
     $ScriptVersion = ($Matches.version) 
-    switch -Regex ($PSCmdlet.ParameterSetName) {
-        'DisplayName' {
+    switch ($identifier) {
+        DisplayName {
             $var = $ScriptName
         }
-        'BaseName' {
+        BaseName {
             $var = $ScriptName -replace($ScriptVersion,'')
         }
-        'Number' {
+        Number {
             $var = [int]$ScriptVersion
         }
+        default { }
     }
     Return $var
 }
 
 Function Load-IseTheme {
     Param ([string]$theme)
+
     $script:psxml = [xml](Get-Content -Path $theme)
     $keyarr = @($psxml.StorableColorTheme.Keys | Select -ExpandProperty string)
     $indx = 0
     foreach ($xmlkey in $keyarr) {
-        switch -regex ($xmlkey) {
+        switch -Regex ($xmlkey) {
             '(^TokenColors|^ConsoleTokenColors|^XmlTokenColors)' {
                 $node = $xmlkey -split '\\'
                 if ([regex]::IsMatch($node[1],'\D')) {
@@ -88,73 +84,82 @@ Function Load-IseTheme {
 }
 
 Function Get-IseVersion {
-    [CmdletBinding(DefaultParameterSetName='CurrentFilePath')]
+    [CmdletBinding(DefaultParameterSetName='CurrentFile')]
     Param (
-        [Parameter(ParameterSetName='CurrentFilePath')][switch]$CurrentFilePath,
+        [Parameter(ParameterSetName='CurrentFile')][switch]$CurrentFile,
         [Parameter(ParameterSetName='Revision')][switch]$Revision,
         [Parameter(ParameterSetName='Fork')][switch]$Fork,
         [Parameter(ParameterSetName='RepositoryPath',Position=0,Mandatory=$true)][switch]$RepositoryPath,
-        [Parameter(ParameterSetName='RepositoryPath',Position=1,Mandatory=$false)][string]$SetPath
+        [Parameter(ParameterSetName='RepositoryPath',Position=1,Mandatory=$false)][string]$SetPath = $null
     )
-    $CurrentFile = $psISE.CurrentFile
+
     $ext = [System.IO.Path]::GetExtension($psISE.CurrentFile.FullPath)
-    switch -Regex ($PSCmdlet.ParameterSetName) {
-        'CurrentFilePath' {
-            Write-Host "$([System.Environment]::NewLine)$($CurrentFile.FullPath)"
+    switch ($PSCmdlet.ParameterSetName) {
+        'CurrentFile' {
+            Write-Host "$([System.Environment]::NewLine)$($psISE.CurrentFile.FullPath)"
         }
-        'Revision|Fork' {
-            if ($_ -match 'Revision') {
-                $rev = (Get-ScriptVersion -Number) + 5
-                $NewFileName = "$(Get-ScriptVersion -BaseName)$rev" + $ext
-                $NewFileContent = $CurrentFile.Editor.Text
-            }
-            elseif ($_ -match 'Fork') {
-                $NewFileName = "$(Get-ScriptVersion -DisplayName)F_0" + $ext
-                $NewFileContent = $CurrentFile.Editor.SelectedText
-            }
-            if ($NewFileContent.length -gt 0) {
-                $NewFile = $psISE.CurrentPowerShellTab.Files.Add()
-                $NewFile.Editor.Text = $NewFileContent
-                $NewFile.Editor.SetCaretPosition(1,1)
-                $ErrorActionPreference = 'Stop'
-                try {
-                    $NewFilePath = Join-Path ($xmlcfg.configuration.appSettings.RepositoryPath.value) $NewFileName
-                }
-                catch {
-                    $NewFilePath = $null
-                    $message = ' Invalid Repository Path '
-                    Write-Host $message -ForegroundColor DarkBlue -BackgroundColor DarkYellow
-                }
-                try {
-                    if ([System.IO.File]::Exists($NewFilePath)) {
-                        $message = " $NewFilePath already exists! " 
-                        Write-Host $message -ForegroundColor DarkBlue -BackgroundColor DarkYellow
-                    }
-                    elseif ($NewFilePath) {
-                        $NewFile.SaveAs($NewFilePath)
-                        if ($_ -match 'Revision') {
-                            $CurrentFile.Save()
-                            $psISE.CurrentPowerShellTab.Files.Remove($CurrentFile,$true)
-                        }
-                    }
-                }
-                catch {
-                    $message = ' Error: could not save to Repository  ' 
-                    Write-Host $message -ForegroundColor White -BackgroundColor DarkMagenta
-                }
-                $ErrorActionPreference = 'Continue'
+        'Revision' {
+            $OriginalFile = $psISE.CurrentFile
+            $rev = (Get-ScriptVersion 'Number') + 5
+            $NewFileName = "$(Get-ScriptVersion 'BaseName')$rev" + $ext
+            $NewFilePath = Join-Path ($xmlcfg.configuration.appSettings.RepositoryPath.value) $NewFileName
+            if ([System.IO.File]::Exists($NewFilePath)) {
+                $message = " $NewFilePath already exists! " 
+                Write-Host $message -ForegroundColor DarkBlue -BackgroundColor DarkYellow
             }
             else {
-                $message = ' Select the code you wish to fork '
+                $NewFileContent = $psISE.CurrentFile.Editor.Text
+                if ($NewFileContent.length -gt 0) {
+                    try {
+                        $OriginalFile.Save()
+                        $NewFile = $psISE.CurrentPowerShellTab.Files.Add()
+                        $NewFile.Editor.Text = $NewFileContent
+                        $NewFile.Editor.SetCaretPosition(1,1)
+                        $NewFile.SaveAs($NewFilePath)
+                        $psISE.CurrentPowerShellTab.Files.Remove($OriginalFile,$false)
+                    }
+                    catch {
+                        $message = ' Repository save action failed ' 
+                        Write-Host $message -ForegroundColor White -BackgroundColor DarkMagenta
+                    }
+                }
+            }
+        }
+        'Fork' {
+            $NewFileName = "$(Get-ScriptVersion 'DisplayName')F_0" + $ext
+            $NewFilePath = Join-Path ($xmlcfg.configuration.appSettings.RepositoryPath.value) $NewFileName
+            if ([System.IO.File]::Exists($NewFilePath)) {
+                $message = " $NewFilePath already exists! " 
                 Write-Host $message -ForegroundColor DarkBlue -BackgroundColor DarkYellow
+            }
+            else {
+                $NewFileContent = $psISE.CurrentFile.Editor.SelectedText
+                if ($NewFileContent.length -gt 0) {
+                    $NewFile = $psISE.CurrentPowerShellTab.Files.Add()
+                    $NewFile.Editor.Text = $NewFileContent
+                    $NewFile.Editor.SetCaretPosition(1,1)
+                    $ErrorActionPreference = 'Stop'
+                    try {
+                        $NewFile.SaveAs($NewFilePath)
+                    }
+                    catch {
+                        $message = ' Repository save action failed ' 
+                         Write-Host $message -ForegroundColor White -BackgroundColor DarkMagenta
+                    }
+                    $ErrorActionPreference = 'Continue'
+                }
+                else {
+                    $message = ' Select the code you wish to fork '
+                    Write-Host $message -ForegroundColor DarkBlue -BackgroundColor DarkYellow
+                }
             }
         }
         'RepositoryPath' {
-            if ($RepositoryPath -and (-not($SetPath))) {
+            if (-not($SetPath)) {
                 $message = "$([System.Environment]::NewLine)$($xmlcfg.configuration.appSettings.RepositoryPath.value)"
                 Write-Output $message
             }
-            elseif ($RepositoryPath -and (Test-Path -Path $SetPath -PathType Container)) {
+            elseif (Test-Path -Path $SetPath -PathType Container) {
                 $xmlcfg.configuration.appSettings.RepositoryPath.value = $SetPath
                 $xmlcfg.Save($configfile)
             }
@@ -168,14 +173,14 @@ Function Get-IseVersion {
 }
 
 Function Get-IseTheme {
-    [CmdletBinding(DefaultParameterSetName='Load')]
+    [CmdletBinding(DefaultParameterSetName='List')]
     Param (
-        [Parameter(ParameterSetName='Load',Position=0)][string]$Load,
-        [Parameter(ParameterSetName='List')][switch]$List,
-        [Parameter(ParameterSetName='Rename',Position=1,Mandatory=$true)][switch]$Rename,
-        [Parameter(ParameterSetName='Rename',Position=2,Mandatory=$true)][string]$CurrentName,
-        [Parameter(ParameterSetName='Rename',Position=3,Mandatory=$true)][string]$NewName
+        [Parameter(ParameterSetName='Load')][string]$Load,
+        [Parameter(ParameterSetName='Rename',Position=0,Mandatory=$true)][switch]$Rename,
+        [Parameter(ParameterSetName='Rename',Position=1,Mandatory=$true)][string]$CurrentName,
+        [Parameter(ParameterSetName='Rename',Position=2,Mandatory=$true)][string]$NewName
     )
+
     $script:ModuleRoot = Split-Path "$PSCommandPath"
     $script:filetype = '.StorableColorTheme.ps1xml'
     $script:configfile = Join-Path $ModuleRoot 'IseThemeManager.config'
@@ -200,6 +205,15 @@ Function Get-IseTheme {
                     }
                 }
             }
+            Load {
+                $LoadThemeFile = Join-Path $ModuleRoot ($LoadThemeName + $filetype)
+                if (-not([System.IO.File]::Exists($LoadThemeFile))) {
+                    $LoadThemeFile = Get-DefaultTheme 'FullPath'
+                    $message = ' Could not find requested theme. Defaulting to most recently modified. '
+                    Write-Host $message -ForegroundColor DarkBlue -BackgroundColor DarkYellow
+                }
+                Load-IseTheme $LoadThemeFile
+            }
             Rename {
                 foreach ($t in $ThemeFiles) {
                     if ($t.Name -eq ($CurrentThemeName + $filetype)) {
@@ -219,15 +233,6 @@ Function Get-IseTheme {
                         break
                     }
                 }
-            }
-            Load {
-                $LoadThemeFile = Join-Path $ModuleRoot ($LoadThemeName + $filetype)
-                if (-not([System.IO.File]::Exists($LoadThemeFile))) {
-                    $LoadThemeFile = (Get-DefaultTheme -File)
-                    $message = ' Could not find requested theme. Defaulting to most recently modified. '
-                    Write-Host $message -ForegroundColor DarkBlue -BackgroundColor DarkYellow
-                }
-                Load-IseTheme $LoadThemeFile
             }
             default { }
         }
