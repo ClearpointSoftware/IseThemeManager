@@ -155,7 +155,7 @@ Function Get-IseVersion {
             }
         }
         'RepositoryPath' {
-            if (-not($SetPath)) {
+            if ([System.String]::IsNullOrEmpty($SetPath)) {
                 $message = "$([System.Environment]::NewLine)$($xmlcfg.configuration.appSettings.RepositoryPath.value)"
                 Write-Output $message
             }
