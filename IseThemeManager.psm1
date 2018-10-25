@@ -13,9 +13,9 @@ Function Get-DefaultTheme {
 }
 
 Function Set-ActiveTheme {
-    Param ([string]$ThemeName)
+    Param ([string]$ActiveTheme)
 
-    $xmlcfg.configuration.appSettings.ActiveThemeName.value = $ThemeName
+    $xmlcfg.configuration.appSettings.ActiveThemeName.value = $ActiveTheme
     $xmlcfg.Save($configfile)
 }
 
@@ -196,13 +196,12 @@ Function Get-IseTheme {
         switch ($PSCmdlet.ParameterSetName) {
             List {
                 $psISE.CurrentPowerShellTab.ConsolePane.Clear()
-                $ThemeFiles | Sort-Object -Property Name | % {
-                    if (($_.Name -replace $filetype,'') -eq $xmlcfg.configuration.appSettings.ActiveThemeName.value) {
-                        Write-Host "$($xmlcfg.configuration.appSettings.ActiveThemeName.value) *"
+                $ThemeFiles | Sort-Object -Property Name | % { 
+                    $themename = $_.Name -replace $filetype,''
+                    if ($themename -eq $xmlcfg.configuration.appSettings.ActiveThemeName.value) {
+                        $themename = "$themename *"
                     }
-                    else {
-                        Write-Host $($_.Name -replace $filetype,'')
-                    }
+                    Write-Host $themename
                 }
             }
             Load {
