@@ -38,16 +38,16 @@ Function Convert-ARGB {
 Function Get-ScriptVersion {
     Param ([string]$identifier)
 
-    $rgx = '(?<version>\d+$)' # $Matches returns 0 if no version digit
+    $rgx = '(?<version>\d+$)'
     $ScriptName =  [System.IO.Path]::GetFileNameWithoutExtension($psISE.CurrentFile.FullPath)
     $result = $ScriptName -match $rgx  
-    $ScriptVersion = ($Matches.version) 
+    $ScriptVersion = ($Matches.version)
     switch ($identifier) {
         DisplayName {
             $var = $ScriptName
         }
         BaseName {
-            $var = $ScriptName -replace($ScriptVersion,'')
+            $var = $ScriptName.Substring(0, ($ScriptName.Length - $ScriptVersion.Length))
         }
         Number {
             $var = [int]$ScriptVersion
