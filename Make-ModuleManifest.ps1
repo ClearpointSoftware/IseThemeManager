@@ -12,7 +12,7 @@ $manifestparams = @{
     PowerShellVersion = '3.0';
     PowerShellHostName = 'Windows PowerShell ISE Host';
     FunctionsToExport = 'Get-IseTheme','Get-IseVersion';
-    FileList = $($modulename + 'psm1'),'IseThemeManager.config';
+    FileList = $($modulename + '.psm1'), $($modulename +'.config');
     ProjectUri = 'https://github.com/ClearpointSoftware/IseThemeManager'
     Tags = 'Editor','ISE','Themes','Color Themes'
 }
