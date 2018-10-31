@@ -1,4 +1,5 @@
 # Build Scripts
 
 #Make-ModuleManifest.ps1
+*.psd1
 

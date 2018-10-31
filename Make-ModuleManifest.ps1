@@ -7,12 +7,12 @@ $manifestparams = @{
     Guid = $(New-Guid);
     Author = 'John Elliott';
     CompanyName = 'Clearpoint Software';
-    Copyright = '(c) 2018 Clearpoint Software All rights reserved';
+    Copyright = '(c) 2018 Clearpoint Software. All rights reserved';
     Description = 'Manages PowerShell ISE color themes'
     PowerShellVersion = '3.0';
     PowerShellHostName = 'Windows PowerShell ISE Host';
     FunctionsToExport = 'Get-IseTheme','Get-IseVersion';
-    FileList = $($modulename + '.psm1'), $($modulename + '.config');
+    FileList = $($modulename + 'psm1'),'IseThemeManager.config';
     ProjectUri = 'https://github.com/ClearpointSoftware/IseThemeManager'
     Tags = 'Editor','ISE','Themes','Color Themes'
 }
