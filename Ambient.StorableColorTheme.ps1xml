@@ -188,13 +188,13 @@
     </Color>
     <Color>
       <A>255</A>
-      <R>95</R>
-      <G>95</G>
-      <B>105</B>
+      <R>76</R>
+      <G>76</G>
+      <B>63</B>
       <ScA>1</ScA>
-      <ScR>0.114435382</ScR>
-      <ScG>0.114435382</ScG>
-      <ScB>0.141263291</ScB>
+      <ScR>0.07227185</ScR>
+      <ScG>0.07227185</ScG>
+      <ScB>0.0497065671</ScB>
     </Color>
     <Color>
       <A>255</A>
@@ -807,7 +807,7 @@
       <ScB>0.8713671</ScB>
     </Color>
   </Values>
-  <Name>Ambient</Name>
+  <Name>(Customized Theme)</Name>
   <FontFamily>Consolas</FontFamily>
   <FontSize>10</FontSize>
 </StorableColorTheme>

@@ -14,10 +14,16 @@ Function Get-DefaultTheme {
 }
 
 Function Set-ActiveTheme {
-    Param ([string]$ActiveTheme)
+    Param ([string]$ActiveThemeFile)
 
-    $xmlcfg.configuration.appSettings.ActiveThemeName.value = $ActiveTheme
+    $ActiveThemeName = ((Split-Path $ActiveThemeFile -Leaf) -split '\.')[0]
+    if ($psxml.StorableColorTheme.Name -ne $ActiveThemeName) {
+        $psxml.StorableColorTheme.Name = $ActiveThemeName
+        $psxml.Save($ActiveThemeFile)
+    }
+    $xmlcfg.configuration.appSettings.ActiveThemeName.value = $ActiveThemeName
     $xmlcfg.Save($configfile)
+    Return $ActiveThemeName
 }
 
 Function Write-Message {
@@ -88,8 +94,7 @@ Function Load-IseTheme {
     }
     $psISE.Options.FontName = ($psxml.ChildNodes.FontFamily.GetValue(1))
     $psISE.Options.FontSize = ($psxml.ChildNodes.FontSize.GetValue(1))
-    Set-ActiveTheme "$($psxml.ChildNodes.Name.GetValue(1))"
-    Write-Host "IseTheme: $($psxml.ChildNodes.Name.GetValue(1))"
+    Write-Message " $(Set-ActiveTheme $theme) "
 }
 
 Function Get-IseTheme {
@@ -128,7 +133,7 @@ Function Get-IseTheme {
                 $LoadThemeFile = Join-Path $ModuleRoot ($LoadThemeName + $filetype)
                 if (-not([System.IO.File]::Exists($LoadThemeFile))) {
                     $LoadThemeFile = Get-DefaultTheme 'FullPath'
-                    Write-Message ' Could not find requested theme. Defaulting to most recently modified. '
+                    Write-Message  " Could not find requested theme. Defaulting to most recently modified "
                 }
                 Load-IseTheme $LoadThemeFile
             }
@@ -183,7 +188,7 @@ Function Get-IseVersion {
     $ext = [System.IO.Path]::GetExtension($psISE.CurrentFile.FullPath)
     switch ($PSCmdlet.ParameterSetName) {
         'CurrentFile' {
-            Write-Host "$([System.Environment]::NewLine)$($psISE.CurrentFile.FullPath)"
+            Write-Message "$([System.Environment]::NewLine) $($psISE.CurrentFile.FullPath) "
         }
         'Revision' {
             $OriginalFile = $psISE.CurrentFile
@@ -206,7 +211,7 @@ Function Get-IseVersion {
                         $psISE.CurrentPowerShellTab.Files.Remove($OriginalFile,$false)
                     }
                     catch {
-                        Write-Message " $($_.Exception.Message) "
+                        Write-Host " $($_.Exception.Message) "
                     }
                 }
                 $ErrorActionPreference = 'Continue'
