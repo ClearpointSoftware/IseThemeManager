@@ -94,6 +94,9 @@ Function Load-IseTheme {
     }
     $psISE.Options.FontName = ($psxml.ChildNodes.FontFamily.GetValue(1))
     $psISE.Options.FontSize = ($psxml.ChildNodes.FontSize.GetValue(1))
+    if ($xmlcfg.configuration.appSettings.SelectSingleNode('Outlining')) {
+        $psISE.Options.ShowOutlining = [bool]([byte]($xmlcfg.configuration.appSettings.Outlining.value))
+    }
     Write-Message " $(Set-ActiveTheme $theme) "
 }
 
