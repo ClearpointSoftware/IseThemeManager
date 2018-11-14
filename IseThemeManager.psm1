@@ -188,6 +188,7 @@ Function Get-IseVersion {
         [Parameter(ParameterSetName='RepositoryPath',Position=1,Mandatory=$false)][string]$SetPath = $null
     )
 
+    $script:xmlcfg = [xml](Get-Content $configfile)
     $ext = [System.IO.Path]::GetExtension($psISE.CurrentFile.FullPath)
     switch ($PSCmdlet.ParameterSetName) {
         'CurrentFile' {
@@ -253,16 +254,22 @@ Function Get-IseVersion {
             }
         }
         'RepositoryPath' {
-            if ([System.String]::IsNullOrEmpty($SetPath)) {
-                $message = "$([System.Environment]::NewLine)$($xmlcfg.configuration.appSettings.RepositoryPath.value)"
-                Write-Output $message
-            }
-            elseif (Test-Path -Path $SetPath -PathType Container) {
-                $xmlcfg.configuration.appSettings.RepositoryPath.value = $SetPath
-                $xmlcfg.Save($configfile)
+            if ([System.String]::IsNullOrEmpty($SetPath)) { 
+                $RepoPath = [string]($xmlcfg.configuration.appSettings.RepositoryPath.value)
+                if ([System.String]::IsNullOrEmpty($RepoPath)) {
+                    $message = 'Repository Path not set'
+                }
+                else {
+                    $message = $RepoPath
+                    if (-not(Test-Path -Path $RepoPath -PathType Container)) {
+                        $message = $message + ' (failed Test-Path)'
+                    }
+                }
+                Write-Message " $message "
             }
             else {
-                Write-Message ' Invalid Repository path. Please try again '
+                $xmlcfg.configuration.appSettings.RepositoryPath.value = $SetPath
+                $xmlcfg.Save($configfile)
             }
         }
         default { }
