@@ -116,7 +116,7 @@ Function Get-IseTheme {
         Sort-Object -Property LastWriteTime -Descending
     $script:xmlcfg = [xml](Get-Content $configfile)
 
-    $LoadThemeName = $Load
+    $LoadThemeName = $Load.Substring(0,1).ToUpper() + $Load.Substring(1)
     $CurrentThemeName = $CurrentName
     $NewThemeName = $NewName
 
