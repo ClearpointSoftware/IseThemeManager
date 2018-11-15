@@ -136,7 +136,7 @@ Function Get-IseTheme {
                 $LoadThemeFile = Join-Path $ModuleRoot ($LoadThemeName + $filetype)
                 if (-not([System.IO.File]::Exists($LoadThemeFile))) {
                     $LoadThemeFile = Get-DefaultTheme 'FullPath'
-                    Write-Message  " Could not find requested theme. Defaulting to most recently modified "
+                    Write-Message ' Could not find requested theme. Defaulting to most recently modified '
                 }
                 Load-IseTheme $LoadThemeFile
             }
@@ -192,7 +192,7 @@ Function Get-IseVersion {
     $ext = [System.IO.Path]::GetExtension($psISE.CurrentFile.FullPath)
     switch ($PSCmdlet.ParameterSetName) {
         'CurrentFile' {
-            Write-Message "$([System.Environment]::NewLine) $($psISE.CurrentFile.FullPath) "
+            Write-Message " $($psISE.CurrentFile.FullPath) "
         }
         'Revision' {
             $OriginalFile = $psISE.CurrentFile
