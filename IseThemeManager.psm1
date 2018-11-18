@@ -72,6 +72,26 @@ Function Get-ScriptVersion {
     Return $var
 }
 
+Function Get-RepositoryPath {
+    if ([System.String]::IsNullOrEmpty($SetPath)) { 
+        $rpv = [string]($xmlcfg.configuration.appSettings.RepositoryPath.value)
+        if ([System.String]::IsNullOrEmpty($rpv)) {
+            $message = 'Repository Path not set'
+        }
+        else {
+            $message = $rpv
+            if (-not(Test-Path -Path $rpv -PathType Container)) {
+                $message = $message + ' (failed Test-Path)'
+            }
+        }
+    }
+    else {
+        $message = $xmlcfg.configuration.appSettings.RepositoryPath.value = $SetPath
+        $xmlcfg.Save($configfile)
+    }
+    Return $message
+}
+
 Function Load-IseTheme {
     Param ([string]$theme)
 
@@ -110,12 +130,11 @@ Function Get-IseTheme {
     )
 
     $script:ModuleRoot = Split-Path "$PSCommandPath"
-    $script:filetype = '.StorableColorTheme.ps1xml'
     $script:configfile = Join-Path $ModuleRoot 'IseThemeManager.config'
+    $script:xmlcfg = [xml](Get-Content $configfile)
+    $script:filetype = '.StorableColorTheme.ps1xml'
     $script:ThemeFiles = @(gci -Path $ModuleRoot | ? { $_.Name -match ".*\$filetype" }) |
         Sort-Object -Property LastWriteTime -Descending
-    $script:xmlcfg = [xml](Get-Content $configfile)
-
     $LoadThemeName = $Load.Substring(0,1).ToUpper() + $Load.Substring(1)
     $CurrentThemeName = $CurrentName
     $NewThemeName = $NewName
@@ -188,6 +207,8 @@ Function Get-IseVersion {
         [Parameter(ParameterSetName='RepositoryPath',Position=1,Mandatory=$false)][string]$SetPath = $null
     )
 
+    $script:ModuleRoot = Split-Path "$PSCommandPath"
+    $script:configfile = Join-Path $ModuleRoot 'IseThemeManager.config'
     $script:xmlcfg = [xml](Get-Content $configfile)
     $ext = [System.IO.Path]::GetExtension($psISE.CurrentFile.FullPath)
     switch ($PSCmdlet.ParameterSetName) {
@@ -195,82 +216,75 @@ Function Get-IseVersion {
             Write-Message " $($psISE.CurrentFile.FullPath) "
         }
         'Revision' {
-            $OriginalFile = $psISE.CurrentFile
-            $rev = (Get-ScriptVersion 'Number') + 5
-            $NewFileName = "$(Get-ScriptVersion 'BaseName')$rev" + $ext
-            $NewFilePath = Join-Path ($xmlcfg.configuration.appSettings.RepositoryPath.value) $NewFileName
-            if ([System.IO.File]::Exists($NewFilePath)) {
-               Write-Message " $NewFilePath already exists! " 
-            }
-            else {
-                $NewFileContent = $psISE.CurrentFile.Editor.Text
-                $ErrorActionPreference = 'Stop'
-                if ($NewFileContent.length -gt 0) {
-                    try {
-                        $OriginalFile.Save()
-                        $NewFile = $psISE.CurrentPowerShellTab.Files.Add()
-                        $NewFile.Editor.Text = $NewFileContent
-                        $NewFile.Editor.SetCaretPosition(1,1)
-                        $NewFile.SaveAs($NewFilePath)
-                        $psISE.CurrentPowerShellTab.Files.Remove($OriginalFile,$false)
-                    }
-                    catch {
-                        Write-Host " $($_.Exception.Message) "
-                    }
+            $RepoPath = Get-RepositoryPath
+            if (Test-Path $RepoPath -PathType Container) {
+                $OriginalFile = $psISE.CurrentFile
+                $rev = (Get-ScriptVersion 'Number') + 2
+                $NewFileName = "$(Get-ScriptVersion 'BaseName')$rev" + $ext
+                $NewFilePath = Join-Path $RepoPath $NewFileName
+                if ([System.IO.File]::Exists($NewFilePath)) {
+                    $message = " $NewFilePath already exists! "
                 }
-                $ErrorActionPreference = 'Continue'
-            }
-        }
-        'Fork' {
-            $NewFileName = "$(Get-ScriptVersion 'DisplayName')F_0" + $ext
-            try {
-                $NewFilePath = Join-Path ($xmlcfg.configuration.appSettings.RepositoryPath.value) $NewFileName
-            }
-            catch {
-                Write-Message ' Invalid Repository path '
-                Return
-            }
-            if ([System.IO.File]::Exists($NewFilePath)) {
-                Write-Message " $NewFilePath already exists! " 
-            }
-            else {
-                $NewFileContent = $psISE.CurrentFile.Editor.SelectedText
-                if ($NewFileContent.length -gt 0) {
-                    $NewFile = $psISE.CurrentPowerShellTab.Files.Add()
-                    $NewFile.Editor.Text = $NewFileContent
-                    $NewFile.Editor.SetCaretPosition(1,1)
+                else {
+                    $NewFileContent = $psISE.CurrentFile.Editor.Text
                     $ErrorActionPreference = 'Stop'
-                    try {
-                        $NewFile.SaveAs($NewFilePath)
-                    }
-                    catch {
-                        Write-Message " $($_.Exception.Message) "
+                    if ($NewFileContent.length -gt 0) {
+                        try {
+                            $OriginalFile.Save()
+                            $NewFile = $psISE.CurrentPowerShellTab.Files.Add()
+                            $NewFile.Editor.Text = $NewFileContent
+                            $NewFile.Editor.SetCaretPosition(1,1)
+                            $NewFile.SaveAs($NewFilePath)
+                            $psISE.CurrentPowerShellTab.Files.Remove($OriginalFile,$false)
+                            $message = " $NewFilePath "
+                        }
+                        catch {
+                            $message = " $($_.Exception.Message) "
+                        }
                     }
                     $ErrorActionPreference = 'Continue'
                 }
-                else {
-                    Write-Message ' Select the code you wish to fork '
-                }
-            }
-        }
-        'RepositoryPath' {
-            if ([System.String]::IsNullOrEmpty($SetPath)) { 
-                $RepoPath = [string]($xmlcfg.configuration.appSettings.RepositoryPath.value)
-                if ([System.String]::IsNullOrEmpty($RepoPath)) {
-                    $message = 'Repository Path not set'
-                }
-                else {
-                    $message = $RepoPath
-                    if (-not(Test-Path -Path $RepoPath -PathType Container)) {
-                        $message = $message + ' (failed Test-Path)'
-                    }
-                }
-                Write-Message " $message "
             }
             else {
-                $xmlcfg.configuration.appSettings.RepositoryPath.value = $SetPath
-                $xmlcfg.Save($configfile)
+                $message = " $RepoPath "
             }
+            Write-Message $message
+        }
+        'Fork' {
+            $RepoPath = Get-RepositoryPath
+            if (Test-Path $RepoPath -PathType Container) {
+                $NewFileName = "$(Get-ScriptVersion 'DisplayName')F_0" + $ext
+                $NewFilePath = Join-Path $RepoPath $NewFileName
+                if ([System.IO.File]::Exists($NewFilePath)) {
+                    $message = " $NewFilePath already exists! "
+                }
+                else {
+                    $NewFileContent = $psISE.CurrentFile.Editor.SelectedText
+                    if ($NewFileContent.length -gt 0) {
+                        $NewFile = $psISE.CurrentPowerShellTab.Files.Add()
+                        $NewFile.Editor.Text = $NewFileContent
+                        $NewFile.Editor.SetCaretPosition(1,1)
+                        $ErrorActionPreference = 'Stop'
+                        try {
+                            $NewFile.SaveAs($NewFilePath)
+                        }
+                        catch {
+                            $message = " $($_.Exception.Message) "
+                        }
+                        $ErrorActionPreference = 'Continue'
+                    }
+                    else {
+                        $message = ' Select the code you wish to fork '
+                    }
+                }
+            }
+            else {
+                $message = " $RepoPath "
+            }
+            Write-Message $message
+        }
+        'RepositoryPath' {
+            Write-Message " $(Get-RepositoryPath) "
         }
         default { }
     }
